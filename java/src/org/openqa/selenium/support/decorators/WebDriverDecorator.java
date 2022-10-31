@@ -21,27 +21,16 @@ import net.bytebuddy.ByteBuddy;
 import net.bytebuddy.dynamic.loading.ClassLoadingStrategy;
 import net.bytebuddy.implementation.InvocationHandlerAdapter;
 import net.bytebuddy.matcher.ElementMatchers;
-
 import org.openqa.selenium.Alert;
 import org.openqa.selenium.Beta;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
-import org.openqa.selenium.WrapsDriver;
-import org.openqa.selenium.WrapsElement;
 import org.openqa.selenium.internal.Require;
 import org.openqa.selenium.virtualauthenticator.VirtualAuthenticator;
 
-import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * This class helps to create decorators for instances of {@link WebDriver} and
@@ -182,42 +171,18 @@ import java.util.stream.Collectors;
  */
 @Beta
 public class WebDriverDecorator<T extends WebDriver> {
-
-  private final Class<T> targetWebDriverClass;
-
-  private final Object[] targetWebDriverConstructorArgs;
-  private final Class<?>[] targetWebDriverConstructorArgTypes;
-
   private Decorated<T> decorated;
 
-  @SuppressWarnings("unchecked")
-  public WebDriverDecorator() {
-    this((Class<T>) WebDriver.class);
-  }
+  public WebDriverDecorator() {}
 
-  public WebDriverDecorator(Class<T> targetClass) {
-    this(targetClass, new Object[0], new Class[0]);
-  }
-
-  public WebDriverDecorator(Class<T> targetClass, Object[] targetConstructorArgs, Class<?>[] targetConstructorArgTypes) {
-    this.targetWebDriverClass = targetClass;
-    if (targetConstructorArgs.length != targetConstructorArgTypes.length) {
-      throw new IllegalArgumentException(
-        String.format(
-          "Constructor arguments array length %d must be equal to the types array length %d",
-          targetConstructorArgs.length, targetConstructorArgTypes.length
-        )
-      );
-    }
-    this.targetWebDriverConstructorArgs = targetConstructorArgs;
-    this.targetWebDriverConstructorArgTypes = targetConstructorArgTypes;
-  }
+  @Deprecated
+  public WebDriverDecorator(Class<T> targetClass) {}
 
   public final T decorate(T original) {
     Require.nonNull("WebDriver", original);
 
     decorated = createDecorated(original);
-    return createProxy(decorated, targetWebDriverClass);
+    return createProxy(decorated);
   }
 
   public Decorated<T> getDecoratedDriver() {
@@ -260,96 +225,69 @@ public class WebDriverDecorator<T extends WebDriver> {
     return new DefaultDecorated<>(original, this);
   }
 
-  public void beforeCall(Decorated<?> target, Method method, Object[] args) {}
-
-  public Object call(Decorated<?> target, Method method, Object[] args) throws Throwable {
-    return decorateResult(method.invoke(target.getOriginal(), args));
+  public void beforeCall(Decorated<?> target, Method method, Object[] args) {
+    throw new NotImplementedException();
   }
 
-  public void afterCall(Decorated<?> target, Method method, Object[] args, Object res) {}
+  public Object call(Decorated<?> target, Method method, Object[] args) throws Throwable {
+    throw new NotImplementedException();
+  }
+
+  public void afterCall(Decorated<?> target, Method method, Object[] args, Object res) {
+    throw new NotImplementedException();
+  }
 
   public Object onError(
     Decorated<?> target,
     Method method,
     Object[] args,
     InvocationTargetException e) throws Throwable {
-    throw e.getTargetException();
+    throw new NotImplementedException();
   }
 
-  private Object decorateResult(Object toDecorate) {
-    if (toDecorate instanceof WebDriver) {
-      return createProxy(getDecoratedDriver(), targetWebDriverClass);
-    }
-    if (toDecorate instanceof WebElement) {
-      return createProxy(createDecorated((WebElement) toDecorate), WebElement.class);
-    }
-    if (toDecorate instanceof Alert) {
-      return createProxy(createDecorated((Alert) toDecorate), Alert.class);
-    }
-    if (toDecorate instanceof VirtualAuthenticator) {
-      return createProxy(createDecorated((VirtualAuthenticator) toDecorate), VirtualAuthenticator.class);
-    }
-    if (toDecorate instanceof WebDriver.Navigation) {
-      return createProxy(createDecorated((WebDriver.Navigation) toDecorate), WebDriver.Navigation.class);
-    }
-    if (toDecorate instanceof WebDriver.Options) {
-      return createProxy(createDecorated((WebDriver.Options) toDecorate), WebDriver.Options.class);
-    }
-    if (toDecorate instanceof WebDriver.TargetLocator) {
-      return createProxy(createDecorated((WebDriver.TargetLocator) toDecorate), WebDriver.TargetLocator.class);
-    }
-    if (toDecorate instanceof WebDriver.Timeouts) {
-      return createProxy(createDecorated((WebDriver.Timeouts) toDecorate), WebDriver.Timeouts.class);
-    }
-    if (toDecorate instanceof WebDriver.Window) {
-      return createProxy(createDecorated((WebDriver.Window) toDecorate), WebDriver.Window.class);
-    }
-    if (toDecorate instanceof List) {
-      return ((List<?>) toDecorate).stream()
-        .map(this::decorateResult)
-        .collect(Collectors.toList());
-    }
-    return toDecorate;
-  }
-
-  @SuppressWarnings("unchecked")
-  protected final <Z> Z createProxy(final Decorated<Z> decorated, Class<Z> clazz) {
-    Set<Class<?>> decoratedInterfaces = extractInterfaces(decorated);
-    Set<Class<?>> originalInterfaces = extractInterfaces(decorated.getOriginal());
-    Map<Class<?>, InvocationHandler> derivedInterfaces = deriveAdditionalInterfaces(decorated.getOriginal());
+  @SuppressWarnings({"unchecked"})
+  protected final <Z> Z createProxy(final Decorated<Z> decorated) {
 
     final InvocationHandler handler = (proxy, method, args) -> {
       try {
-        if (method.getDeclaringClass().equals(Object.class)
-            || decoratedInterfaces.contains(method.getDeclaringClass())) {
-          return method.invoke(decorated, args);
-        }
-        if (originalInterfaces.contains(method.getDeclaringClass())) {
-          decorated.beforeCall(method, args);
-          Object result = decorated.call(method, args);
-          decorated.afterCall(method, result, args);
-          return result;
-        }
-        if (derivedInterfaces.containsKey(method.getDeclaringClass())) {
-          return derivedInterfaces.get(method.getDeclaringClass()).invoke(proxy, method, args);
-        }
+        decorated.beforeCall(method, args);
+      } catch (NotImplementedException e) {
+        // ignore
+      }
 
-        return method.invoke(decorated.getOriginal(), args);
-      } catch (InvocationTargetException e) {
-        return decorated.onError(method, e, args);
+      try {
+        Object result = decorated.call(method, args);
+        try {
+          decorated.afterCall(method, result, args);
+        } catch (NotImplementedException e) {
+          // ignore
+        }
+        return result;
+      } catch (NotImplementedException e) {
+        try {
+          Object result = method.invoke(decorated.getOriginal(), args);
+          try {
+            decorated.afterCall(method, result, args);
+          } catch (NotImplementedException e1) {
+            // ignore
+          }
+          return result;
+        } catch (InvocationTargetException e1) {
+          try {
+            return decorated.onError(method, e1, args);
+          } catch (NotImplementedException e2) {
+            throw e1.getTargetException();
+          }
+        }
       }
     };
 
-    Set<Class<?>> allInterfaces = new HashSet<>();
-    allInterfaces.addAll(decoratedInterfaces);
-    allInterfaces.addAll(originalInterfaces);
-    allInterfaces.addAll(derivedInterfaces.keySet());
-    Class<?>[] allInterfacesArray = allInterfaces.toArray(new Class<?>[0]);
-
-    Class<? extends Z> proxy = new ByteBuddy()
-      .subclass(clazz.isInterface() ? Object.class : clazz)
-      .implement(allInterfacesArray)
-      .method(ElementMatchers.any())
+    Class<?> clazz = decorated.getOriginal().getClass();
+    //noinspection resource
+    Class<?> proxy = new ByteBuddy()
+      .subclass(clazz)
+      .method(ElementMatchers.isPublic()
+        .and(ElementMatchers.not(ElementMatchers.isDeclaredBy(Object.class))))
       .intercept(InvocationHandlerAdapter.of(handler))
       .make()
       .load(clazz.getClassLoader(), ClassLoadingStrategy.Default.WRAPPER)
@@ -357,77 +295,10 @@ public class WebDriverDecorator<T extends WebDriver> {
       .asSubclass(clazz);
 
     try {
-      return (Z) proxy
-        .getConstructor(targetWebDriverConstructorArgTypes)
-        .newInstance(targetWebDriverConstructorArgs);
-    } catch (SecurityException | ReflectiveOperationException e) {
-      throw new IllegalStateException("Unable to create new proxy", e);
+      return (Z) proxy.getDeclaredConstructor().newInstance();
+    } catch (ReflectiveOperationException e) {
+      throw new RuntimeException(e);
     }
-  }
-
-  static Set<Class<?>> extractInterfaces(final Object object) {
-    return extractInterfaces(object.getClass());
-  }
-
-  private static Set<Class<?>> extractInterfaces(final Class<?> clazz) {
-    Set<Class<?>> allInterfaces = new HashSet<>();
-    extractInterfaces(allInterfaces, clazz);
-
-    return allInterfaces;
-  }
-
-  private static void extractInterfaces(final Set<Class<?>> collector, final Class<?> clazz) {
-    if (clazz == null || Object.class.equals(clazz)) {
-      return;
-    }
-
-    final Class<?>[] classes = clazz.getInterfaces();
-    for (Class<?> interfaceClass : classes) {
-      collector.add(interfaceClass);
-      for (Class<?> superInterface : interfaceClass.getInterfaces()) {
-        collector.add(superInterface);
-        extractInterfaces(collector, superInterface);
-      }
-    }
-    extractInterfaces(collector, clazz.getSuperclass());
-  }
-
-  private Map<Class<?>, InvocationHandler> deriveAdditionalInterfaces(Object object) {
-    Map<Class<?>, InvocationHandler> handlers = new HashMap<>();
-
-    if (object instanceof WebDriver && !(object instanceof WrapsDriver)) {
-      handlers.put(WrapsDriver.class, (proxy, method, args) -> {
-        if ("getWrappedDriver".equals(method.getName())) {
-          return object;
-        }
-        throw new UnsupportedOperationException(method.getName());
-      });
-    }
-
-    if (object instanceof WebElement && !(object instanceof WrapsElement)) {
-      handlers.put(WrapsElement.class, (proxy, method, args) -> {
-        if ("getWrappedElement".equals(method.getName())) {
-          return object;
-        }
-        throw new UnsupportedOperationException(method.getName());
-      });
-    }
-
-    try {
-      Method toJson = object.getClass().getDeclaredMethod("toJson");
-      toJson.setAccessible(true);
-
-      handlers.put(JsonSerializer.class, ((proxy, method, args) -> {
-        if ("toJson".equals(method.getName())) {
-          return toJson.invoke(object);
-        }
-        throw new UnsupportedOperationException(method.getName());
-      }));
-    } catch (NoSuchMethodException e) {
-      // Fine. Just fall through
-    }
-
-    return handlers;
   }
 
   @FunctionalInterface

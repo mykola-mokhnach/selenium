@@ -24,6 +24,7 @@ import org.openqa.selenium.Beta;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.support.decorators.Decorated;
+import org.openqa.selenium.support.decorators.NotImplementedException;
 import org.openqa.selenium.support.decorators.WebDriverDecorator;
 
 import java.lang.reflect.InvocationTargetException;
@@ -165,35 +166,35 @@ public class EventFiringDecorator<T extends WebDriver> extends WebDriverDecorato
     this.listeners = Arrays.asList(listeners);
   }
 
+  @Deprecated
   public EventFiringDecorator(Class<T> targetClass, WebDriverListener... listeners) {
     super(targetClass);
     this.listeners = Arrays.asList(listeners);
   }
 
-  public EventFiringDecorator(
-    Class<T> targetClass,
-    Object[] targetConstructorArgs,
-    Class<?>[] targetConstructorArgTypes,
-    WebDriverListener... listeners) {
-    super(targetClass, targetConstructorArgs, targetConstructorArgTypes);
-    this.listeners = Arrays.asList(listeners);
-  }
-
   @Override
   public void beforeCall(Decorated<?> target, Method method, Object[] args) {
+    if (listeners.isEmpty()) {
+      throw new NotImplementedException();
+    }
     listeners.forEach(listener -> fireBeforeEvents(listener, target, method, args));
-    super.beforeCall(target, method, args);
   }
 
   @Override
   public void afterCall(Decorated<?> target, Method method, Object[] args, Object result) {
-    super.afterCall(target, method, args, result);
+    if (listeners.isEmpty()) {
+      throw new NotImplementedException();
+    }
     listeners.forEach(listener -> fireAfterEvents(listener, target, method, result, args));
   }
 
   @Override
   public Object onError(Decorated<?> target, Method method, Object[] args,
                         InvocationTargetException e) throws Throwable {
+    if (listeners.isEmpty()) {
+      throw new NotImplementedException();
+    }
+
     listeners.forEach(listener -> {
       try {
         listener.onError(target.getOriginal(), method, args, e);
@@ -201,7 +202,7 @@ public class EventFiringDecorator<T extends WebDriver> extends WebDriverDecorato
         logger.log(Level.WARNING, t.getMessage(), t);
       }
     });
-    return super.onError(target, method, args, e);
+    return null;
   }
 
   private void fireBeforeEvents(WebDriverListener listener, Decorated<?> target, Method method, Object[] args) {
@@ -272,8 +273,7 @@ public class EventFiringDecorator<T extends WebDriver> extends WebDriverDecorato
       } else if (target.getOriginal() instanceof WebElement) {
         listener.afterAnyWebElementCall((WebElement) target.getOriginal(), method, args, res);
       } else if (target.getOriginal() instanceof WebDriver.Navigation) {
-        listener.afterAnyNavigationCall((WebDriver.Navigation) target.getOriginal(), method, args,
-                                        res);
+        listener.afterAnyNavigationCall((WebDriver.Navigation) target.getOriginal(), method, args, res);
       } else if (target.getOriginal() instanceof Alert) {
         listener.afterAnyAlertCall((Alert) target.getOriginal(), method, args, res);
       } else if (target.getOriginal() instanceof WebDriver.Options) {

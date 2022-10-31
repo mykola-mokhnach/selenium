@@ -121,7 +121,7 @@ public class RemoteWebDriver implements WebDriver,
   private LocalLogs localLogs;
 
   // For cglib
-  protected RemoteWebDriver() {
+  public RemoteWebDriver() {
     this.capabilities = init(new ImmutableCapabilities());
   }
 

@@ -17,20 +17,4 @@
 
 package org.openqa.selenium.support.decorators;
 
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-
-public interface Decorated<T> {
-
-  T getOriginal();
-  WebDriverDecorator<?> getDecorator();
-
-  void beforeCall(Method method, Object[] args);
-
-  Object call(Method method, Object[] args) throws Throwable;
-
-  void afterCall(Method method, Object result, Object[] args);
-
-  Object onError(Method method, InvocationTargetException e, Object[] args) throws Throwable;
-
-}
+public class NotImplementedException extends RuntimeException {}

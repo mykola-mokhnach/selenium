@@ -72,7 +72,10 @@ class EventFiringDecoratorTest {
 
   @Test
   void shouldFireWebDriverEvents() {
+//    RemoteWebDriver driver = mock(RemoteWebDriver.class);
+
     WebDriver driver = mock(WebDriver.class);
+
     CollectorListener listener = new CollectorListener() {
       @Override
       public void beforeGet(WebDriver driver, String url) {
@@ -85,39 +88,6 @@ class EventFiringDecoratorTest {
       }
     };
     WebDriver decorated = new EventFiringDecorator<>(listener).decorate(driver);
-
-    decorated.get("http://example.com/");
-
-    assertThat(listener.acc.toString().trim()).isEqualTo(
-      String.join("\n",
-                  "beforeAnyCall get",
-                  "beforeAnyWebDriverCall get",
-                  "beforeGet",
-                  "afterGet",
-                  "afterAnyWebDriverCall get",
-                  "afterAnyCall get"));
-  }
-
-  @Test
-  void shouldFireWebDriverEventsWithCustomConstructor() {
-    RemoteWebDriver driver = mock(RemoteWebDriver.class);
-    CollectorListener listener = new CollectorListener() {
-      @Override
-      public void beforeGet(WebDriver driver, String url) {
-        acc.append("beforeGet\n");
-      }
-
-      @Override
-      public void afterGet(WebDriver driver, String url) {
-        acc.append("afterGet\n");
-      }
-    };
-    WebDriver decorated = new EventFiringDecorator<>(
-      RemoteWebDriver.class,
-      new Object[] {new ImmutableCapabilities()},
-      new Class[] {Capabilities.class},
-      listener
-    ).decorate(driver);
 
     decorated.get("http://example.com/");
 
